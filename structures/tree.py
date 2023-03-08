@@ -39,6 +39,9 @@ class Tree:
     def is_goal_state(self):
         return self.get_state().goal_test()
 
+    def is_solvable(self):
+        return self.__state.is_solvable()
+
     def add_son(self, state, move):
         son = Tree(self, state, self.get_cost() + 1, move)
         self.__sons.append(son)

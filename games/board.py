@@ -40,6 +40,29 @@ class Board:
     def find_zero(self):
         return self.__board.index(0)
 
+    def is_solvable(self):
+        """
+        Checks if it is solvable
+        :return: (bool)
+        """
+        is_odd = self.__side_size % 2 != 0
+        inv_count_odd = self.count_inversions() % 2 != 0
+
+        return not inv_count_odd if is_odd \
+            else ((self.__side_size - (self.__zero_idx // self.__side_size)) % 2 == 0) == inv_count_odd
+
+    def count_inversions(self):
+        """
+        Counts the number of inversions inside the array board
+        :return: number of inversion (int)
+        """
+        inv_count = 0
+        for i in range(self.__side_size**2 - 1):
+            for j in range(i + 1, self.__side_size**2):
+                inv_count += 1 if (self.__board[j] and self.__board[i] and self.__board[i] > self.__board[j]) else 0
+
+        return inv_count
+
     def calculate_h(self):
         """
         Based on the board, calculates the evaluation function
