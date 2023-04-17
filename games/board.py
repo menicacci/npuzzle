@@ -130,7 +130,7 @@ class Board:
         return self.__h_value == 0
 
     def equals(self, other):
-        return self.__board == other.__board
+        return self.get_board() == other.get_board()
 
     def print_state(self):
         for i in range(self.__side_size ** 2):

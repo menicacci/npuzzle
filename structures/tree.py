@@ -1,7 +1,6 @@
 from functools import *
 from games.board import *
 
-
 @total_ordering
 class Tree:
     def __init__(self, parent, state, cost, move=None):
@@ -17,7 +16,6 @@ class Tree:
         self.__cost = cost
         self.__h = state.get_h()
         self.__move = move
-
     def get_parent(self):
         return self.__parent
 
@@ -46,6 +44,23 @@ class Tree:
         son = Tree(self, state, self.get_cost() + 1, move)
         self.__sons.append(son)
         return son
+
+    def height(self, h=0):
+        son_max_h = h
+        for son in self.get_sons():
+            s_h = son.height(h + 1)
+            if s_h > son_max_h:
+                son_max_h = s_h
+        return son_max_h
+
+    def get_son(self, state):
+        for son in self.get_sons():
+            if son.get_state().equals(state):
+                return son
+            return None
+
+    def exist(self, state):
+        return self.get_son(state) is not None
 
     def generate_sons(self):
         sons = []
@@ -77,12 +92,74 @@ class Tree:
         path = self.get_path()
         path.reverse()
 
-        lp = len(path)
-        data = [[path[i].get_state().get_board(), path[i + 1].get_move()[0] if i < lp - 1 else 0] for i in range(lp)]
+        l_p = len(path)
+        data = [[path[i].get_state().get_board(), path[i + 1].get_move()[0] if i < l_p - 1 else 0] for i in range(l_p)]
         return data
 
-    def reset(self):
+    def get_moves_data(self):
+        return [d[1] for d in self.get_data()]
+
+    def reset(self, state):
         self.__sons = []
+        self.__state = state
 
     def __lt__(self, other):
         return self.get_value() < other.get_value()
+
+    def print_tree(self, tab_count=0):
+        print('\t'*tab_count, self.get_state().get_board(), self.get_move())
+        tab_count += 1
+        for son in self.get_sons():
+            son.print_tree(tab_count)
+
+    #
+    # Functions for visualizing puzzle with multiple solutions
+    #
+
+    def get_resolution_tree(self, solutions):
+        solution_paths = [sol.get_path() for sol in solutions]
+        solution_tree = Tree(None, self.get_state(), 0, [0, 'S'])
+
+        for sol_path in solution_paths:
+            sol_path.reverse()
+            sol_path.pop(0)
+            solution_tree.insert_in_sequence(sol_path)
+        return solution_tree
+
+    def insert_in_sequence(self, sol_path):
+        if bool(sol_path):
+            state, move = sol_path[0].get_state(), sol_path[0].get_move()
+            sol_path.pop(0)
+
+            new_son = self.add_son(state, move) if not self.exist(state) else self.get_son(state)
+            new_son.insert_in_sequence(sol_path)
+
+    def get_graph(self):
+        g = [[] for _ in range(self.height() + 1)]
+        self.calculate_graph(g, 0, [1])
+
+        return g
+
+    # TODO: Refactor
+    def calculate_graph(self, g, h, seq_id):
+        node = None
+        if bool(g[h]):
+            for n in g[h]:
+                if self.get_state().equals(n[1]):
+                    node = n
+                    break
+        if node is None:
+            g[h].append([[seq_id.copy()], self.get_state(), [self.get_move()]])
+        else:
+            node[0].append(seq_id.copy())
+            node[2].append(self.get_move())
+
+        if len(self.get_sons()) == 1:
+            self.get_sons()[0].calculate_graph(g, h+1, seq_id.copy())
+        else:
+            i = 1
+            for son in self.get_sons():
+                s = seq_id.copy()
+                s.append(i)
+                son.calculate_graph(g, h+1, s.copy())
+                i += 1
