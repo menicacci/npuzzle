@@ -1,9 +1,21 @@
 from games.board import *
 from simulation.simulator import *
 import pandas as pd
+import numpy as np
 
 
-def generate_data(puzzle_size=3, n_puzzle=300, max_cost=25, random_data=True, mul_factor=3):
+def make_simulation(puzzle_size=3, max_cost=25, random_data=False, mul_factor=3, multiple_sols=False):
+    board = Board(
+        side_size=puzzle_size,
+        board=None,
+        shuffle=random_data,
+        rand_moves=max_cost*mul_factor
+    )
+    board.print_state()
+
+    return Simulator(board, max_cost, multiple_sols).run(), board
+
+def generate_data(puzzle_size=3, n_puzzle=300, max_cost=25, random_data=True, mul_factor=3, save=True):
     """
     Generate and write simulation into a file
     Data: state: [(int), ..., (int)], move: [(int), (int)]
@@ -12,6 +24,7 @@ def generate_data(puzzle_size=3, n_puzzle=300, max_cost=25, random_data=True, mu
     :param max_cost: maximum cost of a simulation
     :param random_data: generate simulation randomly from scratch
     :param mul_factor: param for non-completely random simulation
+    :param save: saves data generated
     :return: stats about the process
     """
     # Data to write
@@ -20,46 +33,36 @@ def generate_data(puzzle_size=3, n_puzzle=300, max_cost=25, random_data=True, mu
     exp_nodes = 0
     # Cost array
     costs = []
-    # N. of solutions per puzzle
-    n_sols = []
-    # Number of puzzle solved
-    n_solv_p = 0
+    # Number of puzzle tried and solved
+    puzzle_solved, puzzle_tried = 0, 0
 
-    for i in range(n_puzzle):
-        print('Stage:', (i + 1), 'of:', n_puzzle)
+    while puzzle_solved < n_puzzle:
+        sim_results, board = make_simulation(puzzle_size, max_cost, random_data, mul_factor)
 
-        board = Board(
-            side_size=puzzle_size,
-            board=None,
-            shuffle=random_data,
-            rand_moves=0 if random_data else max_cost*mul_factor
-        )
-        board.print_state()
-
-        s = Simulator(board, max_cost)
-        sols, e_nodes, c = s.run()
-
-        for node in sols:
+        for node in sim_results[0]:
             moves = node.get_moves_data()
             data.append([board.get_board(), moves])
 
-        if bool(sols):
-            n_solv_p += 1
-            n_sols.append(len(sols))
-            costs.append(len(moves))
+        if bool(sim_results[0]):
+            puzzle_solved += 1
+            costs.append(sim_results[2])
 
-        exp_nodes += e_nodes
+        exp_nodes += sim_results[1]
+        puzzle_tried += 1
 
-    f = pd.DataFrame(data, columns=['Board', 'Moves'])
-    f_name = 'data/data_' + str(puzzle_size)
-    f.to_csv(f_name, index=False)
+        if puzzle_tried % 10 == 0:
+            print('Puzzle solved at stage {}: {}'.format(puzzle_tried, puzzle_solved))
 
-    print('Puzzle solved: ', n_solv_p, '\tPuzzle solved/Tot.: ', (n_solv_p / n_puzzle)*100, '%')
-    print('Puzzle unsolved: ', (n_puzzle - n_solv_p), '\tPuzzle unsolved/Tot.: ', ((n_puzzle - n_solv_p) / n_puzzle)*100, '%')
-    print('# of expanded nodes during the simulation: ', exp_nodes)
-    print()
+    print('Puzzle solved: {}\tPuzzle solved/Tot.: {}%'.format(puzzle_solved, (puzzle_solved/puzzle_tried)*100))
+    print('# of expanded nodes during the simulation: {}'.format(exp_nodes), end='\n\n')
 
-    return n_solv_p, exp_nodes, costs, n_sols
+    if save:
+        f = pd.DataFrame(data, columns=['Board', 'Moves'])
+        f_name = 'data/data_' + str(puzzle_size)
+        f.to_csv(f_name, index=False)
+        return puzzle_solved, exp_nodes, costs
+    else:
+        return data
 
 def read_data(side_size: int):
     """
@@ -77,9 +80,9 @@ def convert_move_for_nn(move):
     :return: move converted
     Moves format:
         UP    -> [1, 0, 0, 0]
-        DOWN  -> [1, 0, 0, 0]
-        LEFT  -> [1, 0, 0, 0]
-        RIGHT -> [1, 0, 0, 0]
+        DOWN  -> [0, 1, 0, 0]
+        LEFT  -> [0, 0, 1, 0]
+        RIGHT -> [0, 0, 0, 1]
         FINAL -> [0, 0, 0, 0]
     """
     return [
@@ -89,21 +92,41 @@ def convert_move_for_nn(move):
         1 if move == 1 else 0
     ]
 
-def get_data_for_nn(side_size: int):
-    data_nn = []
-    for d in read_data(side_size):
+def get_data_for_nn(side_size):
+    x, y = [], []
+
+    data = read_data(side_size)
+
+    for d in data:
         state, moves = d[0], d[1]
-        sequence = []
         for move in moves:
-            sequence.append([state, convert_move_for_nn(move)])
+            x.append(state)
+            y.append(convert_move_for_nn(move))
+
             state = Board(side_size, state).make_move([move])
-        data_nn.append(sequence.copy())
-    return data_nn
+
+    print('Dataset size: ', len(x))
+    return x, y
 
 def refactor_array(v):
-    v = v.replace('[', '')
-    v = v.replace(']', '')
-    v = v.replace(',', '')
-    v = v.replace('\n', '')
-    v = v.split(' ')
-    return [int(x) for x in v]
+    return [int(n) for n in v.translate(str.maketrans("", "", "[],\n")).split(' ')]
+
+def reshape_for_nn(state, side_size):
+    output = []
+    for i in range(side_size**2):
+        one_hot = np.zeros(side_size**2)
+        one_hot[state[i] - 1] = 1
+
+        output.append(one_hot)
+    return np.array(output).flatten().reshape(side_size**4)
+
+def convert_prediction(prediction, side_size):
+    output = []
+    max_index = np.argmax(prediction)
+    while prediction[max_index] != 0:
+        sign = -1 if max_index % 2 == 0 else 1
+        output.append(sign if max_index > 1 else sign*side_size)
+        prediction[max_index] = 0
+        max_index = np.argmax(prediction)
+
+    return output

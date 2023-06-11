@@ -1,6 +1,5 @@
 from heapq import *
 
-
 class Queue:
     def __init__(self):
         self.__queue = []

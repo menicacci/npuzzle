@@ -3,7 +3,7 @@ from structures.tree import Tree
 
 
 class Simulator:
-    def __init__(self, state, max_cost, multiple_solutions=False):
+    def __init__(self, state, max_cost, multiple_sols=False):
         """
         :param state: problem state
         :param max_cost: maximum cost of a solution
@@ -11,7 +11,7 @@ class Simulator:
         self.__tree = Tree(None, state, 0, [0, 'S'])
         self.__queue = Queue()
         self.__max_cost = max_cost
-        self.__mul_sols = multiple_solutions
+        self.__mul_sols = multiple_sols
 
     def get_tree(self):
         return self.__tree
@@ -36,13 +36,4 @@ class Simulator:
 
             cost = node.get_cost()
             expanded_nodes += self.__queue.enqueue(node)
-        return solutions, expanded_nodes, sol_cost if sol_cost != 0 else cost
-
-    def reset(self, state, max_cost=0):
-        """
-        Reset the simulation
-        :param max_cost: new maximum cost
-        """
-        self.__tree.reset(state)
-        self.__queue.reset()
-        self.__max_cost = max_cost if max_cost > 0 else self.__max_cost
+        return solutions, expanded_nodes, sol_cost

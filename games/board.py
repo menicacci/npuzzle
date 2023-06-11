@@ -122,6 +122,9 @@ class Board:
             moves = self.get_available_moves()
             self.__board = self.make_move(moves[random.randrange(len(moves))])
 
+    def make_new(self, move):
+        return Board(self.get_size(), self.make_move(move))
+
     def goal_test(self):
         """
         Checks if the board is in an optimal position
