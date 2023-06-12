@@ -15,7 +15,14 @@ def make_simulation(puzzle_size=3, max_cost=25, random_data=False, mul_factor=3,
 
     return Simulator(board, max_cost, multiple_sols).run(), board
 
-def generate_data(puzzle_size=3, n_puzzle=300, max_cost=25, random_data=True, mul_factor=3, save=True):
+def generate_data(puzzle_size=3,
+                  n_puzzle=300,
+                  max_cost=25,
+                  random_data=True,
+                  mul_factor=3,
+                  save=True,
+                  multiple_sols=False
+                  ):
     """
     Generate and write simulation into a file
     Data: state: [(int), ..., (int)], move: [(int), (int)]
@@ -25,6 +32,7 @@ def generate_data(puzzle_size=3, n_puzzle=300, max_cost=25, random_data=True, mu
     :param random_data: generate simulation randomly from scratch
     :param mul_factor: param for non-completely random simulation
     :param save: saves data generated
+    :param multiple_sols: looks for multiple solution to a board (with same cost)
     :return: stats about the process
     """
     # Data to write
@@ -37,21 +45,20 @@ def generate_data(puzzle_size=3, n_puzzle=300, max_cost=25, random_data=True, mu
     puzzle_solved, puzzle_tried = 0, 0
 
     while puzzle_solved < n_puzzle:
-        sim_results, board = make_simulation(puzzle_size, max_cost, random_data, mul_factor)
-
-        for node in sim_results[0]:
-            moves = node.get_moves_data()
-            data.append([board.get_board(), moves])
-
-        if bool(sim_results[0]):
-            puzzle_solved += 1
-            costs.append(sim_results[2])
-
+        sim_results, board = make_simulation(puzzle_size, max_cost, random_data, mul_factor, multiple_sols)
         exp_nodes += sim_results[1]
         puzzle_tried += 1
 
         if puzzle_tried % 10 == 0:
             print('Puzzle solved at stage {}: {}'.format(puzzle_tried, puzzle_solved))
+
+        for node in sim_results[0]:
+            moves = node.get_moves_data()
+            data.append([board.get_board(), moves])
+
+        if sim_results[0]:
+            puzzle_solved += 1
+            costs.append(sim_results[2])
 
     print('Puzzle solved: {}\tPuzzle solved/Tot.: {}%'.format(puzzle_solved, (puzzle_solved/puzzle_tried)*100))
     print('# of expanded nodes during the simulation: {}'.format(exp_nodes), end='\n\n')

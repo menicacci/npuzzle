@@ -22,18 +22,16 @@ class Simulator:
 
         self.__queue.push(self.__tree)
         expanded_nodes, cost, node = 0, 0, None
-        solutions, sol_found, sol_cost = [], False, 0
-        while cost < self.__max_cost:
+        solutions = []
+        while cost <= self.__max_cost:
             node = self.__queue.pop()
-            if node is None or node.is_goal_state():
-                if sol_found and node.get_cost() != sol_cost:
-                    break
-                else:
-                    sol_found, sol_cost = True, node.get_cost()
-                    solutions.append(node)
-                    if not self.__mul_sols:
-                        break
 
-            cost = node.get_cost()
+            if node.is_goal_state():
+                solutions.append(node)
+                if not self.__mul_sols:
+                    break
+                self.__max_cost = node.get_cost()
+
+            cost = node.get_value()
             expanded_nodes += self.__queue.enqueue(node)
-        return solutions, expanded_nodes, sol_cost
+        return solutions, expanded_nodes, self.__max_cost
